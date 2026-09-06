@@ -11,3 +11,6 @@ coverage/
 Thumbs.db
 .cursor*
 GuardRail-Roadmap.md
+
+# Private build notes — local only, never commit/push
+dev-notes/
