@@ -1,0 +1,48 @@
+{
+  "name": "guardrail",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Runtime security enforcement library for AI-generated and hand-written code",
+  "workspaces": [
+    "packages/*",
+    "examples/*"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "test:unit": "turbo run test --filter=@guardrail/core --filter=@guardrail/express",
+    "test:coverage": "turbo run test:coverage",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "benchmark": "tsx scripts/benchmark.ts",
+    "clean": "turbo run clean"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "fast-check": "^3.23.2",
+    "tinybench": "^2.9.0",
+    "tsx": "^4.19.2",
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2",
+    "vitest": "^5.0.0"
+  },
+  "overrides": {
+    "qs": "6.16.0",
+    "esbuild": "0.28.2",
+    "vite": "6.4.3",
+    "tsup": {
+      "esbuild": "0.28.2"
+    },
+    "express": {
+      "qs": "6.16.0",
+      "body-parser": {
+        "qs": "6.16.0"
+      }
+    }
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "packageManager": "npm@10.9.0",
+  "license": "MIT"
+}
