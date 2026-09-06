@@ -1,0 +1,20 @@
+{
+  "name": "@guardrail/example-express-basic",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "dev": "tsx watch src/index.ts"
+  },
+  "dependencies": {
+    "@guardrail/core": "*",
+    "@guardrail/express": "*",
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
