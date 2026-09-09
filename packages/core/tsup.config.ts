@@ -7,6 +7,8 @@ export default defineConfig({
     'output/index': 'src/output/index.ts',
     'policies/index': 'src/policies/index.ts',
     'ai-detector/index': 'src/ai-detector/index.ts',
+    'supply-chain/index': 'src/supply-chain/index.ts',
+    'observability/index': 'src/observability/index.ts',
   },
   format: ['esm', 'cjs'],
   dts: true,
