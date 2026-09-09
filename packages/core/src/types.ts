@@ -67,9 +67,45 @@ export interface OutputsConfig {
 export interface GuardrailConfig<TInputs extends Record<string, FieldRule> = Record<string, FieldRule>> {
   inputs?: TInputs;
   outputs?: OutputsConfig;
+  /** Behavior policies evaluated around the request lifecycle */
+  policies?: Policy[];
   debug?: boolean;
   /** Fail closed on unexpected errors (default: true) */
   failClosed?: boolean;
+}
+
+/** When a policy runs relative to the application handler */
+export type PolicyPhase = 'before' | 'after';
+
+export interface PolicyViolation {
+  policy: string;
+  message: string;
+  requestId: string;
+  timestamp: string;
+}
+
+export interface Policy {
+  name: string;
+  when: (req: GuardrailRequest) => boolean | Promise<boolean>;
+  invariant: (
+    req: GuardrailRequest,
+    res?: GuardrailResponse,
+  ) => boolean | Promise<boolean>;
+  onViolation:
+    | 'block'
+    | 'log'
+    | 'alert'
+    | ((req: GuardrailRequest, res: GuardrailResponse | undefined, violation: PolicyViolation) => void);
+  /** Lower runs first (default: 100) */
+  priority?: number;
+  /** before = pre-handler (default); after = post-response body */
+  phase?: PolicyPhase;
+}
+
+export interface PolicyRunResult {
+  allowed: boolean;
+  blocked: boolean;
+  violations: PolicyViolation[];
 }
 
 export interface GuardrailRequest {
