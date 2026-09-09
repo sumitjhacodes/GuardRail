@@ -4,7 +4,9 @@
 
 | Version | Supported |
 |---------|-----------|
-| 0.1.x   | Yes       |
+| 0.3.x   | Yes       |
+| 0.2.x   | Yes       |
+| 0.1.x   | Security fixes only |
 
 ## Reporting a vulnerability
 
@@ -18,6 +20,13 @@ Email security reports to the maintainers (replace with your preferred contact),
 4. Impact assessment (if known)
 
 We aim to acknowledge reports within 72 hours and ship fixes as quickly as possible.
+
+## Advisory process (dry run)
+
+1. Triage severity (critical / high / medium / low)
+2. Patch on a private branch; add regression tests
+3. Publish fixed release + GitHub Security Advisory
+4. Credit reporters who opt in
 
 ## Safe harbor
 
