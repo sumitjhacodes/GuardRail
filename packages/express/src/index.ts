@@ -8,6 +8,8 @@ import {
   type FieldRule,
   type GuardrailConfig,
   type GuardrailInstance,
+  type GuardrailRequest,
+  type GuardrailResponse,
   type OutputsConfig,
 } from '@guardrail/core';
 import type {
@@ -22,10 +24,11 @@ export type {
   FieldRule,
   GuardrailConfig,
   InferInputs,
+  Policy,
   ValidationResult,
 } from '@guardrail/core';
 
-export { rules, events, VERSION } from '@guardrail/core';
+export { rules, events, VERSION, runPolicies, scanCode } from '@guardrail/core';
 
 declare global {
   namespace Express {
@@ -34,19 +37,19 @@ declare global {
         requestId: string;
         validated?: unknown;
         instance?: GuardrailInstance;
-        /** Accumulated outputs config (errorSanitization preserved across layers) */
         outputs?: OutputsConfig;
       };
+      user?: { id?: string; role?: string; [key: string]: unknown };
     }
   }
 }
 
 export interface ExpressGuardrailOptions<TInputs extends Record<string, FieldRule>>
   extends GuardrailConfig<TInputs> {
-  /** Which request sources to validate (default: body, then query/params for matching keys) */
   sources?: Array<'body' | 'query' | 'params'>;
-  /** HTTP status for blocked requests (default: 400) */
   statusCode?: number;
+  /** HTTP status when a policy blocks (default: 403) */
+  policyStatusCode?: number;
 }
 
 type GuardrailMiddleware = RequestHandler & {
@@ -60,10 +63,19 @@ function createRequestId(): string {
   return `req_${randomBytes(8).toString('hex')}`;
 }
 
-/**
- * Merge body / query / params for validation.
- * Body wins on key conflicts; query and params fill missing keys listed in inputs.
- */
+function toGuardrailRequest(req: Request): GuardrailRequest {
+  return {
+    method: req.method,
+    path: req.path,
+    ip: req.ip,
+    body: req.body,
+    query: req.query,
+    params: req.params,
+    headers: req.headers as Record<string, string | string[] | undefined>,
+    user: req.user,
+  };
+}
+
 function collectInputData(
   req: Request,
   inputKeys: string[],
@@ -81,7 +93,6 @@ function collectInputData(
     }
   };
 
-  // Body first (wins)
   if (sources.includes('body') && req.body && typeof req.body === 'object') {
     for (const key of inputKeys) {
       if (key in (req.body as object)) {
@@ -93,7 +104,6 @@ function collectInputData(
   if (sources.includes('query')) take(req.query);
   if (sources.includes('params')) take(req.params);
 
-  // If no keys configured, pass through entire body
   if (inputKeys.length === 0 && sources.includes('body')) {
     return (req.body ?? Object.create(null)) as Record<string, unknown>;
   }
@@ -110,7 +120,6 @@ function mergeOutputs(
   return {
     ...previous,
     ...next,
-    // Prefer explicit next, else keep earlier (global) errorSanitization
     errorSanitization: next.errorSanitization ?? previous.errorSanitization,
     redact: next.redact ?? previous.redact,
     redactPaths: next.redactPaths ?? previous.redactPaths,
@@ -127,30 +136,55 @@ function applySecurityHeaders(res: Response, headers?: Record<string, string>): 
 
 const SANITIZERS = Symbol.for('guardrail.sanitizers');
 const RESPONSE_WRAPPED = Symbol.for('guardrail.responseWrapped');
+const AFTER_POLICIES = Symbol.for('guardrail.afterPolicies');
 
 type SanitizerFn = (data: unknown) => unknown;
+
+type AfterPolicyDecision = {
+  blocked: boolean;
+  payload?: unknown;
+  statusCode?: number;
+};
+
+type AfterPolicyRunner = (body: unknown) => Promise<AfterPolicyDecision>;
 
 function wrapResponse(
   res: Response,
   instance: GuardrailInstance,
-  headers?: Record<string, string>,
+  headers: Record<string, string> | undefined,
+  afterPolicyRunner?: AfterPolicyRunner,
 ): void {
   applySecurityHeaders(res, headers);
 
   const resAny = res as Response & {
     [SANITIZERS]?: SanitizerFn[];
     [RESPONSE_WRAPPED]?: boolean;
+    [AFTER_POLICIES]?: AfterPolicyRunner;
   };
 
   const bag = resAny[SANITIZERS] ?? [];
   bag.push((data) => instance.sanitize(data));
   resAny[SANITIZERS] = bag;
 
+  if (afterPolicyRunner) {
+    const previous = resAny[AFTER_POLICIES];
+    // Chain stacked middleware after-runners instead of overwriting
+    resAny[AFTER_POLICIES] = previous
+      ? async (body) => {
+          const first = await previous(body);
+          if (first.blocked) return first;
+          return afterPolicyRunner(body);
+        }
+      : afterPolicyRunner;
+  }
+
   if (resAny[RESPONSE_WRAPPED]) return;
   resAny[RESPONSE_WRAPPED] = true;
 
   const originalJson = res.json.bind(res);
   const originalSend = res.send.bind(res);
+  // Express res.json() calls res.send() internally — guard against re-entry
+  let flushing = false;
 
   const runSanitizers = (body: unknown): unknown => {
     let current = body;
@@ -160,18 +194,49 @@ function wrapResponse(
     return current;
   };
 
+  const finishJson = async (body: unknown) => {
+    const after = resAny[AFTER_POLICIES];
+    if (after) {
+      const decision = await after(body);
+      if (decision.blocked) {
+        // Use originalJson directly — guarded json would recurse forever
+        res.statusCode = decision.statusCode ?? 403;
+        flushing = true;
+        try {
+          return originalJson(
+            decision.payload ?? {
+              valid: false,
+              errors: [{ field: '_policy', code: 'POLICY_VIOLATION', message: 'Policy violation' }],
+            },
+          );
+        } finally {
+          flushing = false;
+        }
+      }
+    }
+    flushing = true;
+    try {
+      return originalJson(runSanitizers(body));
+    } finally {
+      flushing = false;
+    }
+  };
+
   res.json = function guardedJson(body: unknown) {
-    return originalJson(runSanitizers(body));
+    return finishJson(body) as unknown as Response;
   };
 
   res.send = function guardedSend(body: unknown) {
+    if (flushing) {
+      return originalSend(body as string);
+    }
     if (body !== null && typeof body === 'object' && !Buffer.isBuffer(body)) {
-      return originalSend(runSanitizers(body) as string);
+      return finishJson(body) as unknown as Response;
     }
     if (typeof body === 'string') {
       try {
         const parsed = JSON.parse(body) as unknown;
-        return originalSend(JSON.stringify(runSanitizers(parsed)));
+        return finishJson(parsed) as unknown as Response;
       } catch {
         return originalSend(body);
       }
@@ -180,23 +245,6 @@ function wrapResponse(
   };
 }
 
-/**
- * Express middleware factory.
- *
- * @example
- * ```ts
- * import express from 'express';
- * import { guardrail, rules } from '@guardrail/express';
- *
- * const app = express();
- * app.use(express.json());
- * app.use(guardrail({
- *   inputs: { search: rules.string().sqlSafe().xssSafe() },
- *   outputs: { redact: ['password', 'ssn'] },
- * }));
- * app.use(guardrail.errorHandler());
- * ```
- */
 export function guardrail<TInputs extends Record<string, FieldRule>>(
   config: ExpressGuardrailOptions<TInputs> = {},
 ): GuardrailMiddleware {
@@ -204,8 +252,10 @@ export function guardrail<TInputs extends Record<string, FieldRule>>(
   const instance = createGuardrail(config);
   const sources = config.sources ?? ['body', 'query', 'params'];
   const statusCode = config.statusCode ?? 400;
+  const policyStatusCode = config.policyStatusCode ?? 403;
   const inputKeys = config.inputs ? Object.keys(config.inputs) : [];
   const failClosed = config.failClosed !== false;
+  const hasPolicies = (config.policies?.length ?? 0) > 0;
 
   const middleware: RequestHandler = async (req, res, next) => {
     const requestId = req.guardrail?.requestId ?? createRequestId();
@@ -217,7 +267,40 @@ export function guardrail<TInputs extends Record<string, FieldRule>>(
     };
 
     try {
-      wrapResponse(res, instance, config.outputs?.headers);
+      const afterPolicyRunner = hasPolicies
+        ? async (body: unknown) => {
+            const grReq = toGuardrailRequest(req);
+            const grRes: GuardrailResponse = {
+              locals: res.locals as Record<string, unknown>,
+              body,
+              statusCode: res.statusCode,
+            };
+            const result = await instance.runPolicies(grReq, grRes, {
+              requestId,
+              phase: 'after',
+            });
+            if (result.blocked) {
+              return {
+                blocked: true,
+                statusCode: policyStatusCode,
+                payload: {
+                  valid: false,
+                  errors: result.violations.map((v) => ({
+                    field: '_policy',
+                    code: 'POLICY_VIOLATION',
+                    message: v.message,
+                    pattern: v.policy,
+                  })),
+                  requestId,
+                  timestamp: new Date().toISOString(),
+                },
+              };
+            }
+            return { blocked: false };
+          }
+        : undefined;
+
+      wrapResponse(res, instance, config.outputs?.headers, afterPolicyRunner);
 
       if (config.inputs && inputKeys.length > 0) {
         const data = collectInputData(req, inputKeys, sources);
@@ -243,10 +326,29 @@ export function guardrail<TInputs extends Record<string, FieldRule>>(
         }
 
         req.guardrail.validated = result.data;
-
-        // Replace body with shape-stripped validated data only (no mass-assignment)
         if (result.data && typeof result.data === 'object') {
           req.body = { ...(result.data as object) };
+        }
+      }
+
+      if (hasPolicies) {
+        const before = await instance.runPolicies(toGuardrailRequest(req), {
+          locals: res.locals as Record<string, unknown>,
+        }, { requestId, phase: 'before' });
+
+        if (before.blocked) {
+          res.status(policyStatusCode).json({
+            valid: false,
+            errors: before.violations.map((v) => ({
+              field: '_policy',
+              code: 'POLICY_VIOLATION',
+              message: v.message,
+              pattern: v.policy,
+            })),
+            requestId,
+            timestamp: new Date().toISOString(),
+          });
+          return;
         }
       }
 
@@ -286,7 +388,6 @@ export function guardrail<TInputs extends Record<string, FieldRule>>(
   };
 
   const wrapped = middleware as GuardrailMiddleware;
-  // Prefer this instance's outputs when calling mw.errorHandler()
   wrapped.errorHandler = () => errorHandler(config.outputs);
   wrapped.healthCheck = () => healthCheckHandler(instance);
   wrapped.validateConfig = validateConfig;
@@ -294,13 +395,9 @@ export function guardrail<TInputs extends Record<string, FieldRule>>(
   return wrapped;
 }
 
-/** Express error handler — sanitizes errors before sending to client. */
-export function errorHandler(
-  errConfig?: OutputsConfig,
-): ErrorRequestHandler {
+export function errorHandler(errConfig?: OutputsConfig): ErrorRequestHandler {
   return (err, req, res, _next) => {
     const requestId = req.guardrail?.requestId ?? createRequestId();
-    // Explicit arg > accumulated middleware outputs > safe defaults
     const outputs = errConfig ?? req.guardrail?.outputs;
     const sanitized = sanitizeError(
       err,
