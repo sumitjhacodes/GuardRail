@@ -9,7 +9,7 @@
 
 Guardrail sits between your app and the outside world — scanning inputs, sanitizing outputs, and failing closed when something looks wrong.
 
-> **Phase 1 (MVP):** `@guardrail/core` input scanner + output redaction, `@guardrail/express` middleware.
+> **Phase 2:** Core policies + AI detector, Express/Fastify/Hono adapters.
 
 ## Quick start
 
@@ -53,17 +53,20 @@ app.listen(3000);
 
 AI coding assistants ship fast — and often ship SQL concatenation, missing auth checks, and secrets in logs. Guardrail adds a transparent, zero-config-friendly security layer so those mistakes are blocked at runtime instead of becoming incidents.
 
-## Features (Phase 1)
+## Features (Phase 2)
 
 | Module | Package | Status |
 |--------|---------|--------|
 | Input scanner | `@guardrail/core` / `./input` | Done |
 | Output sanitizer | `@guardrail/core` / `./output` | Done |
+| Behavior policies | `@guardrail/core` / `./policies` | Done |
+| AI code detector | `@guardrail/core` / `./ai-detector` | Done |
 | Express adapter | `@guardrail/express` | Done |
-| Behavior policies | `@guardrail/core/policies` | Phase 2 |
-| AI code detector | `@guardrail/core/ai-detector` | Phase 2 |
+| Fastify adapter | `@guardrail/fastify` | Done |
+| Hono adapter | `@guardrail/hono` | Done |
 | Supply chain verifier | `@guardrail/core/supply-chain` | Phase 3 |
 | WASM pattern engine | `@guardrail/wasm` | Phase 3 |
+| Next.js adapter | `@guardrail/next` | Phase 3 |
 
 ### Input rules
 
@@ -79,27 +82,42 @@ rules.array(rules.string()).maxItems(10);
 rules.file().maxSize(5_000_000).mimeTypes(['image/png']).noExecutable();
 ```
 
-### Output redaction
+### Behavior policies
 
 ```typescript
 guardrail({
-  outputs: {
-    redact: ['password', 'ssn', 'apiKey'],
-    redactPaths: ['user.paymentMethods.*.number', '*.token'],
-    errorSanitization: {
-      hideStackTraces: true,
-      hideServerInfo: true,
-      customErrorMessages: { SQL_ERROR: 'Database operation failed' },
+  policies: [
+    {
+      name: 'admin-only',
+      when: (req) => !!req.path?.startsWith('/api/admin'),
+      invariant: (req) => req.user?.role === 'admin',
+      onViolation: 'block',
+      priority: 10,
     },
-  },
+  ],
+});
+```
+
+### AI code detector
+
+```typescript
+import { scanCode } from '@guardrail/core/ai-detector';
+
+const findings = await scanCode({
+  entryPoint: './src',
+  include: ['**/*.ts'],
+  severity: 'medium',
 });
 ```
 
 ## Monorepo
 
 ```
-packages/core      — zero runtime dependencies
+packages/core      — zero runtime dependencies (input, output, policies, ai-detector)
 packages/express  — Express middleware
+packages/fastify  — Fastify plugin
+packages/hono     — Hono middleware
+docs/             — public guides
 examples/express-basic
 ```
 
@@ -120,6 +138,7 @@ npm run benchmark   # ~0.01ms mean for <1KB validateInputs on this machine
 
 ## Documentation
 
+- [docs/](docs/) — getting started, rules, policies, AI detector, frameworks
 - [SECURITY.md](SECURITY.md) — disclosure process
 - [CONTRIBUTING.md](CONTRIBUTING.md) — local development
 - [examples/express-basic](examples/express-basic) — runnable demo
