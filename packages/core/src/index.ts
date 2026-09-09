@@ -10,6 +10,10 @@ export type {
   InferInputs,
   InferRuleType,
   OutputsConfig,
+  Policy,
+  PolicyPhase,
+  PolicyRunResult,
+  PolicyViolation,
   SecurityEvent,
   SqlDialect,
   ValidationError,
@@ -33,6 +37,21 @@ export {
 export { deepRedact, redactByKeys, sanitizeOutput, sanitizeError } from './output/index.js';
 export type { SanitizedError } from './output/index.js';
 
+export { runPolicies } from './policies/index.js';
+export type { RunPoliciesOptions } from './policies/index.js';
+
+export {
+  scanCode,
+  AI_VULNERABILITY_PATTERNS,
+  SEVERITY_RANK,
+} from './ai-detector/index.js';
+export type {
+  ScanCodeOptions,
+  ScanResult,
+  AiPattern,
+  Severity,
+} from './ai-detector/index.js';
+
 export { events } from './events/index.js';
 export { validateConfig } from './config.js';
 export {
@@ -48,17 +67,6 @@ import type { FieldRule, GuardrailConfig, HealthCheckResult } from './types.js';
 
 /**
  * Primary API: create a configured Guardrail instance.
- *
- * @example
- * ```ts
- * import { guardrail, rules } from '@guardrail/core';
- *
- * const gr = guardrail({
- *   inputs: {
- *     search: rules.string().sqlSafe().xssSafe().maxLength(100),
- *   },
- * });
- * ```
  */
 export function guardrail<TInputs extends Record<string, FieldRule>>(
   config: GuardrailConfig<TInputs> = {},
