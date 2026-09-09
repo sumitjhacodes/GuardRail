@@ -30,3 +30,13 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm audit --audit-level=high
+
+  # Optional: enable when rustc + wasm-pack are available on runners
+  # wasm:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: dtolnay/rust-toolchain@stable
+  #     - run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+  #     - run: npm ci
+  #     - run: npm run build:rust --workspace=@guardrail/wasm
