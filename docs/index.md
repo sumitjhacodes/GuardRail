@@ -9,12 +9,16 @@ Public documentation for Guardrail.
 - [Policies](./policies.md)
 - [AI Detector](./ai-detector.md)
 - [Framework Adapters](./frameworks.md)
+- [Supply Chain](./supply-chain.md)
+- [Observability](./observability.md)
 
 ## Packages
 
 | Package | Description |
 |---------|-------------|
-| `@guardrail/core` | Input scanner, output sanitizer, policies, AI detector |
+| `@guardrail/core` | Input, output, policies, AI detector, supply-chain, metrics |
 | `@guardrail/express` | Express middleware |
 | `@guardrail/fastify` | Fastify plugin |
 | `@guardrail/hono` | Hono middleware |
+| `@guardrail/next` | Next.js middleware |
+| `@guardrail/wasm` | Pattern accelerator (JS + optional Rust WASM) |
