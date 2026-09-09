@@ -1,0 +1,25 @@
+{
+  "name": "fixture-workspace",
+  "lockfileVersion": 3,
+  "requires": true,
+  "packages": {
+    "": {
+      "name": "fixture-workspace",
+      "version": "1.0.0",
+      "workspaces": ["packages/*"]
+    },
+    "node_modules/@guardrail/core": {
+      "resolved": "packages/core",
+      "link": true
+    },
+    "packages/core": {
+      "name": "@guardrail/core",
+      "version": "0.3.0"
+    },
+    "node_modules/lodash": {
+      "version": "4.17.21",
+      "resolved": "https://registry.npmjs.org/lodash/-/lodash-4.17.21.tgz",
+      "integrity": "sha512-v2kDEe57lecT96akJc+j+jF6dC8vLclViPvNqQxq6Z+K4zq/s+7z/8Y4q7L2g7Y2q8q8q8q8q8q8q8q8q8q8q="
+    }
+  }
+}
