@@ -32,7 +32,10 @@ export {
   detectPathTraversal,
   getSqlPatterns,
   getXssPatterns,
+  setPatternAccelerator,
+  getPatternAccelerator,
 } from './input/index.js';
+export type { PatternAccelerator, PatternMatch } from './input/index.js';
 
 export { deepRedact, redactByKeys, sanitizeOutput, sanitizeError } from './output/index.js';
 export type { SanitizedError } from './output/index.js';
@@ -51,6 +54,28 @@ export type {
   AiPattern,
   Severity,
 } from './ai-detector/index.js';
+
+export {
+  verifyImports,
+  parsePackageLock,
+  verifyChecksums,
+  fingerprint,
+  scanBehavior,
+  scanThreats,
+  scanPostinstallScript,
+  BUILTIN_DENY_LIST,
+} from './supply-chain/index.js';
+export type {
+  VerifyImportsOptions,
+  VerifyImportsResult,
+  SupplyChainFinding,
+  BehaviorProfile,
+  ThreatIntelligenceOptions,
+  ChecksumOptions,
+} from './supply-chain/index.js';
+
+export { createMetrics, healthWithMetrics } from './observability/index.js';
+export type { GuardrailMetrics, MetricsSnapshot } from './observability/index.js';
 
 export { events } from './events/index.js';
 export { validateConfig } from './config.js';
