@@ -1,7 +1,7 @@
 {
   "name": "@guardrail/core",
-  "version": "0.2.0",
-  "description": "Runtime security enforcement — input scanner, output sanitizer, policies, AI detector",
+  "version": "0.3.0",
+  "description": "Runtime security enforcement — input scanner, output sanitizer, policies, AI detector, supply-chain, metrics",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -32,6 +32,16 @@
       "types": "./dist/ai-detector/index.d.ts",
       "import": "./dist/ai-detector/index.js",
       "require": "./dist/ai-detector/index.cjs"
+    },
+    "./supply-chain": {
+      "types": "./dist/supply-chain/index.d.ts",
+      "import": "./dist/supply-chain/index.js",
+      "require": "./dist/supply-chain/index.cjs"
+    },
+    "./observability": {
+      "types": "./dist/observability/index.d.ts",
+      "import": "./dist/observability/index.js",
+      "require": "./dist/observability/index.cjs"
     }
   },
   "files": [
