@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.0 — Phase 3
+
+### Added
+- Supply-chain verifier (`@guardrail/core/supply-chain`) — offline lockfile integrity, install-script policy, pluggable threat deny lists (`verifyImports`)
+- Observability helpers (`@guardrail/core/observability`) — Prometheus-style counters from the events bus (`createMetrics`, `healthWithMetrics`)
+- Optional pattern accelerator hook (`setPatternAccelerator`) with JS fallback in detectors
+- `@guardrail/wasm` — JS accelerator package + optional Rust/wasm-pack scaffold
+- `@guardrail/next` — Next.js middleware adapter (Edge-safe request validation)
+- Docs for supply-chain, metrics, Next.js, and WASM
+
 ## 0.2.0 — Phase 2
 
 ### Added
