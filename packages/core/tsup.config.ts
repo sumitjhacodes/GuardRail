@@ -5,6 +5,8 @@ export default defineConfig({
     index: 'src/index.ts',
     'input/index': 'src/input/index.ts',
     'output/index': 'src/output/index.ts',
+    'policies/index': 'src/policies/index.ts',
+    'ai-detector/index': 'src/ai-detector/index.ts',
   },
   format: ['esm', 'cjs'],
   dts: true,
