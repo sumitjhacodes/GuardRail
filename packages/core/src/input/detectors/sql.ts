@@ -80,10 +80,23 @@ export interface SqlScanResult {
 }
 
 export function detectSqlInjection(input: string, dialect: SqlDialect = 'all'): SqlScanResult {
-  for (const { name, pattern } of getSqlPatterns(dialect)) {
-    const match = input.match(pattern);
-    if (match) {
-      return { safe: false, pattern: name, matched: match[0]?.slice(0, 64) };
+  const candidates = [input];
+  try {
+    const decoded = decodeURIComponent(input.replace(/\+/g, ' '));
+    if (decoded !== input) candidates.push(decoded);
+  } catch {
+    // ignore malformed URI sequences
+  }
+  // Common partial encodings
+  const soft = input.replace(/%20/gi, ' ').replace(/%27/gi, "'").replace(/%3B/gi, ';');
+  if (soft !== input) candidates.push(soft);
+
+  for (const candidate of candidates) {
+    for (const { name, pattern } of getSqlPatterns(dialect)) {
+      const match = candidate.match(pattern);
+      if (match) {
+        return { safe: false, pattern: name, matched: match[0]?.slice(0, 64) };
+      }
     }
   }
   return { safe: true };
