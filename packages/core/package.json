@@ -1,7 +1,7 @@
 {
   "name": "@guardrail/core",
-  "version": "0.1.0",
-  "description": "Runtime security enforcement — input scanner, output sanitizer, and core engine",
+  "version": "0.2.0",
+  "description": "Runtime security enforcement — input scanner, output sanitizer, policies, AI detector",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -22,6 +22,16 @@
       "types": "./dist/output/index.d.ts",
       "import": "./dist/output/index.js",
       "require": "./dist/output/index.cjs"
+    },
+    "./policies": {
+      "types": "./dist/policies/index.d.ts",
+      "import": "./dist/policies/index.js",
+      "require": "./dist/policies/index.cjs"
+    },
+    "./ai-detector": {
+      "types": "./dist/ai-detector/index.d.ts",
+      "import": "./dist/ai-detector/index.js",
+      "require": "./dist/ai-detector/index.cjs"
     }
   },
   "files": [
