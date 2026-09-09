@@ -1,0 +1,45 @@
+{
+  "name": "@guardrail/hono",
+  "version": "0.2.0",
+  "description": "Hono middleware adapter for Guardrail runtime security",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": ["dist", "README.md"],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "clean": "rimraf dist coverage"
+  },
+  "dependencies": {
+    "@guardrail/core": "*"
+  },
+  "peerDependencies": {
+    "hono": ">=4.0.0"
+  },
+  "devDependencies": {
+    "hono": "^4.7.2",
+    "rimraf": "^6.0.1",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.2",
+    "vitest": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
