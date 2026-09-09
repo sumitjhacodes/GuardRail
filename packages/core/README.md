@@ -3,7 +3,15 @@
 Zero-dependency runtime security engine.
 
 ```typescript
-import { guardrail, rules, scanCode, runPolicies } from '@guardrail/core';
+import {
+  guardrail,
+  rules,
+  scanCode,
+  runPolicies,
+  verifyImports,
+  createMetrics,
+  setPatternAccelerator,
+} from '@guardrail/core';
 
 const gr = guardrail({
   inputs: { search: rules.string().sqlSafe().xssSafe().maxLength(100) },
@@ -19,6 +27,8 @@ const gr = guardrail({
 });
 
 const findings = await scanCode({ entryPoint: './src', include: ['**/*.ts'] });
+await verifyImports({ checksums: { source: 'package-lock.json' } });
+const metrics = createMetrics();
 ```
 
-Subpath exports: `./input`, `./output`, `./policies`, `./ai-detector`.
+Subpath exports: `./input`, `./output`, `./policies`, `./ai-detector`, `./supply-chain`, `./observability`.
