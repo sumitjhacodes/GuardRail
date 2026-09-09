@@ -143,4 +143,131 @@ describe('Express adapter', () => {
     expect(res.body.propagated).toBe(true);
     expect(res.body.message).toBe('validator crashed');
   });
+
+  it('blocks non-admin via before policy', async () => {
+    const local = express();
+    local.use(express.json());
+    local.use(
+      guardrail({
+        policies: [
+          {
+            name: 'admin-only',
+            when: (req) => !!req.path?.startsWith('/api/admin'),
+            invariant: (req) => req.user?.role === 'admin',
+            onViolation: 'block',
+          },
+        ],
+      }),
+    );
+    local.get('/api/admin', (_req, res) => res.json({ ok: true }));
+
+    const denied = await request(local).get('/api/admin');
+    expect(denied.status).toBe(403);
+    expect(denied.body.errors[0].code).toBe('POLICY_VIOLATION');
+  });
+
+  it('allows admin via before policy when req.user set', async () => {
+    const local = express();
+    local.use(express.json());
+    local.use((req, _res, next) => {
+      req.user = { role: 'admin', id: '1' };
+      next();
+    });
+    local.use(
+      guardrail({
+        policies: [
+          {
+            name: 'admin-only',
+            when: (req) => !!req.path?.startsWith('/api/admin'),
+            invariant: (req) => req.user?.role === 'admin',
+            onViolation: 'block',
+          },
+        ],
+      }),
+    );
+    local.get('/api/admin', (_req, res) => res.json({ ok: true }));
+
+    const allowed = await request(local).get('/api/admin');
+    expect(allowed.status).toBe(200);
+    expect(allowed.body.ok).toBe(true);
+  });
+
+  it('honors policyStatusCode for after-phase policy blocks', async () => {
+    const local = express();
+    local.use(express.json());
+    local.use(
+      guardrail({
+        policyStatusCode: 451,
+        policies: [
+          {
+            name: 'deny-ok',
+            phase: 'after',
+            when: () => true,
+            invariant: (_req, res) => {
+              const body = res?.body as { ok?: boolean } | undefined;
+              return body?.ok !== true;
+            },
+            onViolation: 'block',
+          },
+        ],
+      }),
+    );
+    local.get('/x', (_req, res) => res.json({ ok: true }));
+
+    const res = await request(local).get('/x');
+    expect(res.status).toBe(451);
+    expect(res.body.errors[0].code).toBe('POLICY_VIOLATION');
+  });
+
+  it('chains after-phase policies across stacked middleware', async () => {
+    const local = express();
+    local.use(express.json());
+    local.use(
+      guardrail({
+        policies: [
+          {
+            name: 'outer-after',
+            phase: 'after',
+            when: () => true,
+            invariant: (_req, res) => {
+              const body = res?.body as { mark?: string } | undefined;
+              return body?.mark !== 'hit-outer';
+            },
+            onViolation: 'block',
+          },
+        ],
+      }),
+    );
+    local.use(
+      guardrail({
+        policies: [
+          {
+            name: 'inner-after',
+            phase: 'after',
+            when: () => true,
+            invariant: (_req, res) => {
+              const body = res?.body as { mark?: string } | undefined;
+              return body?.mark !== 'hit-inner';
+            },
+            onViolation: 'block',
+          },
+        ],
+      }),
+    );
+    local.get('/outer', (_req, res) => res.json({ mark: 'hit-outer' }));
+    local.get('/inner', (_req, res) => res.json({ mark: 'hit-inner' }));
+    local.get('/ok', (_req, res) => res.json({ mark: 'other' }));
+
+    const outer = await request(local).get('/outer');
+    expect(outer.status).toBe(403);
+    expect(outer.body.errors[0].pattern).toBe('outer-after');
+
+    const inner = await request(local).get('/inner');
+    expect(inner.status).toBe(403);
+    expect(inner.body.errors[0].pattern).toBe('inner-after');
+
+    const ok = await request(local).get('/ok');
+    expect(ok.status).toBe(200);
+    expect(ok.body.mark).toBe('other');
+  });
 });
