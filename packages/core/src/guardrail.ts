@@ -13,7 +13,7 @@ import type {
 import { createRequestId } from './utils/ids.js';
 import { nowIso } from './utils/security.js';
 
-export const VERSION = '0.2.0';
+export const VERSION = '0.3.0';
 
 export interface GuardrailInstance<TInputs extends Record<string, FieldRule> = Record<string, FieldRule>> {
   config: GuardrailConfig<TInputs>;
