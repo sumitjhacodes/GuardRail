@@ -28,3 +28,21 @@ app.use('*', guardrail({
   outputs: { redact: ['password'] },
 }));
 ```
+
+## Next.js
+
+```typescript
+// middleware.ts
+import { guardrail, rules } from '@guardrail/next';
+
+export const middleware = guardrail.next({
+  inputs: { q: rules.string().sqlSafe() },
+  outputs: { headers: { 'X-Content-Type-Options': 'nosniff' } },
+});
+
+export const config = { matcher: '/api/:path*' };
+```
+
+Use `sanitizeResponse` / `enforceAfterPolicies` inside Route Handlers for output redaction and after-phase policies. Run `verifyImports` and metrics in Node (not Edge).
+
+After middleware validates inputs, read the stripped body with `getValidatedBody(req)` — Next cannot rewrite the request body stream, so Guardrail forwards JSON via the `x-guardrail-body` header.
