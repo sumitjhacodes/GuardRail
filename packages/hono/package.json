@@ -1,6 +1,6 @@
 {
   "name": "@guardrail/hono",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Hono middleware adapter for Guardrail runtime security",
   "license": "MIT",
   "type": "module",
