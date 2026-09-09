@@ -1,18 +1,24 @@
 # @guardrail/core
 
-Zero-dependency runtime security engine: fluent input rules, detectors (SQL/XSS/secrets/path traversal), output redaction, and events.
+Zero-dependency runtime security engine.
 
 ```typescript
-import { guardrail, rules, events } from '@guardrail/core';
+import { guardrail, rules, scanCode, runPolicies } from '@guardrail/core';
 
 const gr = guardrail({
-  inputs: {
-    search: rules.string().sqlSafe().xssSafe().maxLength(100),
-  },
+  inputs: { search: rules.string().sqlSafe().xssSafe().maxLength(100) },
   outputs: { redact: ['password'] },
+  policies: [
+    {
+      name: 'admin-only',
+      when: (req) => !!req.path?.startsWith('/api/admin'),
+      invariant: (req) => req.user?.role === 'admin',
+      onViolation: 'block',
+    },
+  ],
 });
 
-const result = await gr.validate({ search: 'hello' });
+const findings = await scanCode({ entryPoint: './src', include: ['**/*.ts'] });
 ```
 
-See the root [README](../../README.md) for full documentation.
+Subpath exports: `./input`, `./output`, `./policies`, `./ai-detector`.
