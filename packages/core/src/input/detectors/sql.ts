@@ -1,4 +1,5 @@
 import type { SqlDialect } from '../../types.js';
+import { matchSqlWithAccelerator } from './accelerator.js';
 
 /** Base SQL injection patterns (dialect-agnostic). */
 export const SQL_BASE_PATTERNS: ReadonlyArray<{ name: string; pattern: RegExp }> = [
@@ -92,6 +93,18 @@ export function detectSqlInjection(input: string, dialect: SqlDialect = 'all'): 
   if (soft !== input) candidates.push(soft);
 
   for (const candidate of candidates) {
+    const accelerated = matchSqlWithAccelerator(candidate, getSqlPatterns(dialect));
+    if (accelerated) {
+      return {
+        safe: false,
+        pattern: accelerated.name,
+        matched: accelerated.matched.slice(0, 64),
+      };
+    }
+    if (accelerated === null) {
+      // Accelerator explicitly said safe for this candidate — still check remaining candidates
+      continue;
+    }
     for (const { name, pattern } of getSqlPatterns(dialect)) {
       const match = candidate.match(pattern);
       if (match) {
