@@ -9,7 +9,7 @@
 
 Guardrail sits between your app and the outside world — scanning inputs, sanitizing outputs, and failing closed when something looks wrong.
 
-> **Phase 2:** Core policies + AI detector, Express/Fastify/Hono adapters.
+> **Phase 3:** Supply-chain verification, observability metrics, Next.js adapter, optional WASM accelerator.
 
 ## Quick start
 
@@ -53,7 +53,7 @@ app.listen(3000);
 
 AI coding assistants ship fast — and often ship SQL concatenation, missing auth checks, and secrets in logs. Guardrail adds a transparent, zero-config-friendly security layer so those mistakes are blocked at runtime instead of becoming incidents.
 
-## Features (Phase 2)
+## Features (Phase 3)
 
 | Module | Package | Status |
 |--------|---------|--------|
@@ -61,12 +61,35 @@ AI coding assistants ship fast — and often ship SQL concatenation, missing aut
 | Output sanitizer | `@guardrail/core` / `./output` | Done |
 | Behavior policies | `@guardrail/core` / `./policies` | Done |
 | AI code detector | `@guardrail/core` / `./ai-detector` | Done |
+| Supply chain verifier | `@guardrail/core/supply-chain` | Done |
+| Observability metrics | `@guardrail/core/observability` | Done |
 | Express adapter | `@guardrail/express` | Done |
 | Fastify adapter | `@guardrail/fastify` | Done |
 | Hono adapter | `@guardrail/hono` | Done |
-| Supply chain verifier | `@guardrail/core/supply-chain` | Phase 3 |
-| WASM pattern engine | `@guardrail/wasm` | Phase 3 |
-| Next.js adapter | `@guardrail/next` | Phase 3 |
+| Next.js adapter | `@guardrail/next` | Done |
+| WASM / JS accelerator | `@guardrail/wasm` | Done (JS default; Rust optional) |
+
+### Supply chain (startup / CI)
+
+```typescript
+import { verifyImports } from '@guardrail/core/supply-chain';
+
+const result = await verifyImports({
+  checksums: { source: 'package-lock.json', algorithm: 'sha512' },
+  behaviorProfile: { childProcess: { allowed: false } },
+  threatIntelligence: { blockKnownMalicious: true },
+});
+if (!result.ok) process.exit(1);
+```
+
+### Metrics
+
+```typescript
+import { createMetrics } from '@guardrail/core/observability';
+
+const metrics = createMetrics();
+app.get('/metrics', (_req, res) => res.type('text/plain').send(metrics.toPrometheus()));
+```
 
 ### Input rules
 
@@ -75,7 +98,7 @@ import { rules } from '@guardrail/core';
 
 rules.string().sqlSafe().xssSafe().noSecrets().noPathTraversal().maxLength(100);
 rules.uuid();
-rules.email(); // .domainExists() for optional DNS MX check
+rules.email();
 rules.number().min(0).max(150);
 rules.object({ zip: rules.string().matches(/^\d{5}$/) });
 rules.array(rules.string()).maxItems(10);
@@ -113,11 +136,13 @@ const findings = await scanCode({
 ## Monorepo
 
 ```
-packages/core      — zero runtime dependencies (input, output, policies, ai-detector)
+packages/core      — zero runtime dependencies
 packages/express  — Express middleware
 packages/fastify  — Fastify plugin
 packages/hono     — Hono middleware
-docs/             — public guides
+packages/next     — Next.js middleware
+packages/wasm     — JS accelerator + optional Rust WASM
+docs/
 examples/express-basic
 ```
 
@@ -135,10 +160,11 @@ npm run benchmark   # ~0.01ms mean for <1KB validateInputs on this machine
 - **Prototype-safe** — null-prototype objects for scratch maps
 - **Secrets never logged** — detections emit sanitized events only
 - **Timing-safe compares** available in utils for secret equality
+- **Offline-first supply chain** — lockfile checks without network by default
 
 ## Documentation
 
-- [docs/](docs/) — getting started, rules, policies, AI detector, frameworks
+- [docs/](docs/) — guides for rules, policies, AI detector, frameworks, supply-chain, metrics
 - [SECURITY.md](SECURITY.md) — disclosure process
 - [CONTRIBUTING.md](CONTRIBUTING.md) — local development
 - [examples/express-basic](examples/express-basic) — runnable demo
