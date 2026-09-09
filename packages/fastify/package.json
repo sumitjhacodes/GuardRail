@@ -1,6 +1,6 @@
 {
   "name": "@guardrail/fastify",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Fastify plugin adapter for Guardrail runtime security",
   "license": "MIT",
   "type": "module",
