@@ -2,6 +2,7 @@ import { validateConfig } from './config.js';
 import { events } from './events/index.js';
 import { validateInputs } from './input/index.js';
 import { sanitizeError, sanitizeOutput } from './output/index.js';
+import { runPolicies } from './policies/engine.js';
 import type {
   FieldRule,
   GuardrailConfig,
@@ -12,13 +13,19 @@ import type {
 import { createRequestId } from './utils/ids.js';
 import { nowIso } from './utils/security.js';
 
-export const VERSION = '0.1.0';
+export const VERSION = '0.2.0';
 
 export interface GuardrailInstance<TInputs extends Record<string, FieldRule> = Record<string, FieldRule>> {
   config: GuardrailConfig<TInputs>;
   validate: (data: unknown, requestId?: string) => Promise<ValidationResult<InferInputs<TInputs>>>;
   sanitize: (data: unknown) => unknown;
   sanitizeError: typeof sanitizeError;
+  /** Run configured behavior policies */
+  runPolicies: (
+    req: import('./types.js').GuardrailRequest,
+    res?: import('./types.js').GuardrailResponse,
+    options?: import('./policies/engine.js').RunPoliciesOptions,
+  ) => Promise<import('./types.js').PolicyRunResult>;
   rulesLoaded: number;
 }
 
@@ -31,7 +38,9 @@ export function createGuardrail<TInputs extends Record<string, FieldRule>>(
 ): GuardrailInstance<TInputs> {
   validateConfig(config as GuardrailConfig);
 
-  const rulesLoaded = config.inputs ? Object.keys(config.inputs).length : 0;
+  const rulesLoaded =
+    (config.inputs ? Object.keys(config.inputs).length : 0) +
+    (config.policies?.length ?? 0);
 
   const instance: GuardrailInstance<TInputs> = {
     config,
@@ -108,6 +117,14 @@ export function createGuardrail<TInputs extends Record<string, FieldRule>>(
         }
         throw err;
       }
+    },
+
+    async runPolicies(req, res, options) {
+      return runPolicies(config.policies ?? [], req, res, {
+        failClosed: config.failClosed !== false,
+        debug: config.debug,
+        ...options,
+      });
     },
 
     sanitize(data) {
